@@ -49,6 +49,36 @@ Eigen::Vector3d Quat2RPY(const Eigen::Quaterniond &_q){
 	return {roll, pitch, yaw};
 }
 
+Eigen::Vector3d LogSO3(const Eigen::Matrix3d &R)
+{
+    const double tr = R(0,0)+R(1,1)+R(2,2);
+    Eigen::Vector3d w;
+    w << (R(2,1)-R(1,2))/2, (R(0,2)-R(2,0))/2, (R(1,0)-R(0,1))/2;
+    const double costheta = (tr-1.0)*0.5f;
+    if(costheta>1 || costheta<-1)
+        return w;
+    const double theta = acos(costheta);
+    const double s = sin(theta);
+    if(fabs(s)<1e-5)
+        return w;
+    else
+        return theta*w/s;
+}
+
+Eigen::Matrix3d InverseRightJacobianSO3(const Eigen::Vector3d &r)
+{
+    const double x = r[0], y = r[1], z = r[2];
+	const double d2 = x*x+y*y+z*z;
+    const double d = sqrt(d2);
+
+    Eigen::Matrix3d W;
+    W << 0.0, -z, y,z, 0.0, -x,-y,  x, 0.0;
+    if(d<1e-5)
+        return Eigen::Matrix3d::Identity();
+    else
+        return Eigen::Matrix3d::Identity() + W/2 + W*W*(1.0/d2 - (1.0+cos(d))/(2.0*d*sin(d)));
+}
+
 
 //Eigen::Matrix3d NormalizeRotation(const Eigen::Matrix3d &R){
 //    Eigen::JacobiSVD<Eigen::Matrix3d> svd(R, Eigen::ComputeFullU | Eigen::ComputeFullV);

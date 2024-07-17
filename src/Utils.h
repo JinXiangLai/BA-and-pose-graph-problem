@@ -10,3 +10,5 @@ constexpr double kDeg2Rad = M_PI / 180;
 Eigen::Matrix3d Vector2Rotation(const Eigen::Vector3d &r);
 Eigen::Matrix3d SkewSymmetricMatrix(const Eigen::Vector3d &v);
 Eigen::Vector3d Quat2RPY(const Eigen::Quaterniond &q);
+Eigen::Vector3d LogSO3(const Eigen::Matrix3d &R);
+Eigen::Matrix3d InverseRightJacobianSO3(const Eigen::Vector3d &r);
