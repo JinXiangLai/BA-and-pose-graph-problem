@@ -1,5 +1,5 @@
 # BA-program
-仅使用Eigen库手写的一个SLAM BA求解程序，包括：
+仅使用Eigen库手写的一个SLAM BA和位姿图优化求解程序，包括：
 
 class KeyFrame & class Point：分别用于管理pose和point状态量；
 

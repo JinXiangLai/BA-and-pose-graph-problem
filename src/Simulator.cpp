@@ -72,12 +72,25 @@ void Simulator::GenerateMap(const Eigen::MatrixXd &ps, const vector<Eigen::Quate
         // 保存真值用于优化后评估
         truePointPos_.insert({ p, ps.col(i) });
     }
+
+    shared_ptr<KeyFrame> prevKF{nullptr};
     for (int i = 0; i < pos.size(); ++i)
     {
         shared_ptr<KeyFrame> kf = make_shared<KeyFrame>(quat[i], pos[i]);
         map_.AddKeyFrame(kf);
         truePoseQuat_.insert({ kf, quat[i] });
         truePosePos_.insert({ kf, pos[i] });
+        
+        // 添加帧间位姿变换约束
+        if(prevKF) {
+            Eigen::Quaterniond q_wb1;
+            Eigen::Vector3d p_wb1;
+            prevKF->GetPose(q_wb1, p_wb1);
+            const Eigen::Quaterniond q_b1b2 = q_wb1.inverse() * quat[i];
+            const Eigen::Vector3d p_b1b2 = q_wb1.inverse() * (pos[i] - p_wb1);
+            kf->SetPrevKF(prevKF, q_b1b2, p_b1b2);
+        }
+        prevKF = kf;
     }
 
     // 添加keyframe & point相互观测信息

@@ -2,7 +2,7 @@
 
 int main()
 {
-    Simulator sim(80, 2, 10000, 1e-4);
+    Simulator sim(4, 2, 10000, 1e-4);
     sim.Optimize();
     return 0;
 }

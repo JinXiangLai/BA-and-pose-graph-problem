@@ -31,10 +31,19 @@ int NonLinearOptimizer::ComputeResidualNum()
         {
             if (kfs_.count(kfs[i]))
             {
-                sum += 1; // 添加一个残差
+                sum += 2; // 添加一个重投影残差
             }
         }
         ++pit;
+    }
+
+    auto kfit = kfs_.begin();
+    while (kfit != kfs_.end()) 
+    {
+        if(kfit->first->GetPrevKF()){
+            sum += 6; // 添加一个相对位姿约束残差
+        }
+        ++kfit;
     }
     return sum;
 }
@@ -88,6 +97,23 @@ bool NonLinearOptimizer::ComputeJacobianFull(const int bSize, Eigen::MatrixXd &J
         ++pit;
     }
 
+    auto kfit2 = kfs_.begin();
+    while (kfit2 != kfs_.end()) {
+        // 添加帧间pose变换的Jacobian
+        shared_ptr<KeyFrame> prev = kfit2->first->GetPrevKF();
+        if (kfs_.count(prev)) {
+            Eigen::Matrix<double, 6, 6> J_pose1, J_pose2;
+            if (kfit2->first->Jacobian(prev, J_pose1, J_pose2)) {
+                const int poseCol1 = kfs_[prev] * KeyFrame::size();
+                const int poseCol2 = kfs_[kfit2->first] * KeyFrame::size();
+                Jfull.block(resId, poseCol1, 6, 6) = J_pose1;
+                Jfull.block(resId, poseCol2, 6, 6) = J_pose2;
+                resId += 6;
+            }
+        }
+        ++kfit2;
+    }
+
     return true;
 }
 
@@ -122,6 +148,28 @@ bool NonLinearOptimizer::ComputeResidualFull(const int bSize, Eigen::VectorXd &b
             }
         }
         ++pit;
+    }
+
+    auto kfit2 = kfs_.begin();
+    while (kfit2 != kfs_.end()) {
+        // 添加帧间pose变换的Jacobian
+        shared_ptr<KeyFrame> prev = kfit2->first->GetPrevKF();
+        shared_ptr<KeyFrame> cur = kfit2->first;
+        if (kfs_.count(prev)) {
+            Eigen::Quaterniond q_b1b2_obv;
+            Eigen::Vector3d p_b1b2_obv;
+            cur->GetRelativePoseConstraint(q_b1b2_obv, p_b1b2_obv);
+            const Eigen::Quaterniond deltaQ = cur->GetQuat().inverse() * prev->GetQuat();
+            const Eigen::Vector3d residualR = LogSO3((q_b1b2_obv * deltaQ).toRotationMatrix());
+            const Eigen::Vector3d deltaP = prev->GetQuat().inverse() *
+                (cur->GetPosition() - prev->GetPosition());
+            const Eigen::Vector3d residualP = deltaP - p_b1b2_obv;
+            bFull.middleRows(resId, 3) = residualR;
+            resId += 3;
+            bFull.middleRows(resId, 3) = residualP;
+            resId += 3;
+        }
+        ++kfit2;
     }
     //cout.precision(3);
     //cout << "residual: " << bFull.transpose().head(6) << " | "
@@ -248,7 +296,7 @@ bool NonLinearOptimizer::RestoreStatus()
 bool NonLinearOptimizer::Optimize()
 {
     // 关键帧在Jacobian的起始索引从0开始
-    const int bSize = ComputeResidualNum() * 2;
+    const int bSize = ComputeResidualNum();
     ComputeJacobianFull(bSize, J_);
     ComputeResidualFull(bSize, b_);
     if (lastCost_ < 0) {
@@ -301,7 +349,7 @@ void NonLinearOptimizer::PrintBasicMessage() {
     }
     cout << "others: " << endl;
     cout << " " << "pointStartColInJacobian_: " << pointStartColInJacobian_ << endl;
-	cout << "[ComputeResidualNum]: residual num: " << ComputeResidualNum() << endl;
+    cout << "[ComputeResidualNum]: residual num: " << ComputeResidualNum() << endl;
     cout << "##############################" << endl;
 }
 
