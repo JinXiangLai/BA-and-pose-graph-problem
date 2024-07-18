@@ -5,7 +5,7 @@ Eigen::Matrix3d Vector2Rotation(const Eigen::Vector3d &r)
 	const double angle = r.norm();
 	if (angle * kRad2Deg < 1e-6)
 	{
-		return Eigen::Matrix3d();
+		return Eigen::Matrix3d::Identity();
 	}
 	else
 	{
